@@ -24,7 +24,8 @@ var (
 // Watcher implements Casbin updates watcher to synchronize policy changes
 // between the nodes
 type Watcher struct {
-	url          string
+	eurl         string
+	qurl         string
 	callbackFunc func(string)
 	connMu       *sync.RWMutex
 	ctx          context.Context
@@ -32,11 +33,10 @@ type Watcher struct {
 	sub          *pubsub.Subscription
 }
 
-// New creates a new watcher  https://gocloud.dev/concepts/urls/
-// gcppubsub://myproject/mytopic
-func New(ctx context.Context, url string) (*Watcher, error) {
+func NewForRabbitMQ(ctx context.Context, ename, qname string) (*Watcher, error) {
 	w := &Watcher{
-		url:    url,
+		eurl:   fmt.Sprintf("rabbit://%s", ename),
+		qurl:   fmt.Sprintf("rabbit://%s", qname),
 		connMu: &sync.RWMutex{},
 	}
 
@@ -61,7 +61,7 @@ func (w *Watcher) initializeConnections(ctx context.Context) error {
 	w.connMu.Lock()
 	defer w.connMu.Unlock()
 	w.ctx = ctx
-	topic, err := pubsub.OpenTopic(ctx, w.url)
+	topic, err := pubsub.OpenTopic(ctx, w.eurl)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (w *Watcher) initializeConnections(ctx context.Context) error {
 }
 
 func (w *Watcher) subscribeToUpdates(ctx context.Context) error {
-	sub, err := pubsub.OpenSubscription(ctx, w.url)
+	sub, err := pubsub.OpenSubscription(ctx, w.qurl)
 	if err != nil {
 		return fmt.Errorf("failed to open updates subscription, error: %w", err)
 	}
